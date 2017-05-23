@@ -61,7 +61,7 @@ function ShareIo( name ){
                 var message = e.data;
                 if( message.from !== this.guid ){
                     emmiter.emit( message.type, message.message, { name:message.from, guid:message.guid }, this )
-
+                    // 发送到所以消息订阅事件
                     emmiter.emit( 'alls', message.message, { name:message.from, guid:message.guid }, this )
                 }
             })
@@ -106,16 +106,23 @@ function ShareIo( name ){
      * 出发消息发送
      */
     this.emit = function(message = {}, to = 'all'){
-        // 发送消息前调用 open 来确保 SharedWorker 对象一连接
-        this.open()
-        var type = (message || {}).type || 'default'
-        var ret = sharedworker.port.postMessage({
+        var dataPackage = {
             guid:this.guid,
             from:this.name,
             to:to,
-            type:type,
+            type:(message || {}).type || 'default',
             message:message
-        })
+        }
+        var type = dataPackage.type
+        if( /^self$/i.test( to ) ){
+            emmiter.emit( type, dataPackage.message, { name:dataPackage.from, guid:dataPackage.guid }, this )
+             // 发送到所以消息订阅事件
+            emmiter.emit( 'alls', dataPackage.message, { name:dataPackage.from, guid:dataPackage.guid }, this )
+        } else {
+            // 发送消息前调用 open 来确保 SharedWorker 对象一连接
+            this.open()
+            var ret = sharedworker.port.postMessage(dataPackage)
+        }
         return this
     }
     /**
